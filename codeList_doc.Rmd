@@ -1,0 +1,1222 @@
+---
+title: "APEX Variable Documentation"
+author: "Tessa LiVoti"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    number_sections: true
+    highlight: kate
+    cards: true
+    css: apex.css
+    toc_float: 
+      toc_collapsed: TRUE
+    toc_depth: 2
+---
+
+
+<style type="text/css">
+.main-container {
+  max-width: 1000px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+div.rect {
+  border: 2px solid #035C79;
+  border-radius: 15px;
+  padding: 10px;
+}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+library(RPostgreSQL)
+library(stringr)
+library(dplyr)
+library(readxl)
+library(knitr)
+library(readxl)
+library(DT)
+
+# database login info taken out for security - contact me directly if you have questions 
+
+dartnet_snomed <- read_excel("code_lists/snomed_apex_valuesets.xlsx")
+repo <- dbGetQuery(db, 'select * from repository.repository')
+value_set <- dbGetQuery(db, 'select * from repository.value_set')
+
+drug_cat <- read_excel('code_lists/all_drug_cat.xlsx')
+
+
+```
+
+
+# COPD Population Selection
+
+## Overall {.tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+The overall COPD population is selected based on meeting the following criteria:
+
+* Patients who have had an appointment in the last 2 years AND either:
+    + Have been diagnosed/re-coded with COPD in the last 2 years OR 
+    + Have had a prescription for a COPD inhaler in the last 2 years AND 
+    + have a COPD diagnosis ever
+
+
+## Asthma Population {#asthma .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+The final asthma  population is selected based on meeting <b>all</b> of the following criteria:
+
+* Asthma diagnosis code (either ICD or SNOMED)
+
+
+
+### Asthma Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3> Asthma Diagnosis Codes</h3></center>
+```{r qofAsthma_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+
+Asthma_codes <- filter(repo, value_set_id == 305) %>%
+  select(c(code, code_system, description)) 
+
+colnames(Asthma_codes) <- c('Code', 'Code System', 'Description')
+#qofAsthma_codes$Term <- gsub('[X]', '', qofAsthma_codes$Term, fixed = T)
+
+datatable(Asthma_codes, escape = F, filter = 'top', rownames = F, extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## COPD Diagnosis Codes {#copd .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+### COPD Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>COPD Diagnosis Codes</h3></center>
+```{r qofcopd_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+COPD_codes <- filter(repo, value_set_id == 127) %>%
+  select(c(code, code_system, description))
+
+
+colnames(COPD_codes) <- c('Code', 'Code System', 'Description')
+
+datatable(COPD_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+
+# Demographics 
+
+## Age {#age}
+
+Age is calculated by subtracting patient's birth year from the year of the audit.
+
+## Gender {#gender}
+
+Gender is pulled from the patient's record.
+
+## Weight {#weight}
+
+Weight is stored as pounds or ounces in the patient's EHR and converted to kg using either: 
+
+* weight_kg = pounds/2.205
+* weight_kg = oz/35.274
+
+## Height {#height}
+
+Height is stored in inches in the patient's EHR and converted to meters using: 
+
+* height_m = inches/39.37
+
+## Body Mass Index (BMI) {#bmi}
+
+BMI is calculated using height (in m) and weight (in kg) using: 
+
+* bmi = weight_kg/(height_m^2)
+
+It is then categorized into one of the following: 
+
+* under weight: BMI < 18.5
+* normal weight: 18.5 =< BMI < 25
+* over weight: 25 =< BMI < 30
+* obese: 30 =< BMI 
+
+## Ethnicity {#ethnicity}
+
+Ethnicity is pulled from the patient's record.
+
+## Race {#race}
+
+Race is pulled from the patient's record.
+
+
+# Comorbidities
+
+## AATD {#aatd .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+AATD diagnosis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Bronchiectasis Diagnosis Codes</h3></center>
+```{r aatd_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+aatd_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "AATD") 
+
+colnames(aatd_codes) <- c('Code', 'Code System', 'Description')
+
+datatable(aatd_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## Acute sinusitis {#acutesin .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Acute sinusitis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Cough Diagnosis Codes</h3></center>
+```{r acute_sinusitis_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+acute_sinusitis_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "acute sinusitis")
+
+colnames(acute_sinusitis_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(acute_sinusitis_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Anemia {#anemia .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Anemia diagnosis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Cystic Fibrosis Diagnosis Codes</h3></center>
+```{r anemia_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+anemia_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Anemia")
+
+
+colnames(anemia_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(anemia_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Ankle Edema  {#ankle .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Ankle Edema  diagnosis code ever.
+
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Anxiety Diagnosis Codes</h3></center>
+```{r ankle_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+ankle_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Ankle Edema")
+
+
+colnames(ankle_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(ankle_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## Anxiety  {#anx .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Anxiety diagnosis code ever.
+
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Anxiety Diagnosis Codes</h3></center>
+```{r anx_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+anx_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Anxiety")
+
+
+colnames(anx_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(anx_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## Chronic Sinusitis  {#chronicsin .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Chronic Sinusitis diagnosis code ever.
+
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Anxiety Diagnosis Codes</h3></center>
+```{r chronicsin_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+chronicsin_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "chronic sinusitis")
+
+colnames(chronicsin_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(chronicsin_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Diabetes  {#diabetes .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+To be categorized with diabetes, patients must meet <b>all</b> of the following criteria:
+
+* Diabetes diagnosis code ever, regardless of type I or II
+* No diabetes resolved codes since their last diabetes diagnosis
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Diabetes Diagnosis Codes</h3></center>
+```{r diabetes_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+diabetes_codes <- filter(repo, value_set_id == 289) %>%
+  select(c(code, code_system, description))
+
+
+colnames(diabetes_codes) <-  c('Code', 'Code System', 'Term')
+
+datatable(diabetes_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## Eczema {#eczema .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Eczema diagnosis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Eczema Diagnosis Codes</h3></center>
+```{r eczema_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+eczema_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Eczema")
+
+
+colnames(eczema_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(eczema_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## GERD {#gerd .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+GERD diagnosis code in the audit period.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>GERD Diagnosis Codes</h3></center>
+```{r GERD_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+GERD_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "GERD") 
+
+
+colnames(GERD_codes) <-  c('Code', 'Code System', 'Term')
+
+datatable(GERD_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## Heart Failure {#heartfail .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Heart failure code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Heart Failure Diagnosis Codes</h3></center>
+```{r hf_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+hf_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Heart failure") 
+
+
+colnames(hf_codes) <-  c('Code', 'Code System', 'Term')
+
+datatable(hf_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## Hypertension {#hyperten .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Hypertension diagnosis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Hypertension Diagnosis Codes</h3></center>
+```{r hyperten_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+hyperten_codes <- filter(repo, value_set_id == 306) %>%
+  select(c(code, code_system, description))
+
+colnames(hyperten_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(hyperten_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+
+## Hypoxemia {#hypoxemia .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Hypoxemia diagnosis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Hypoxemia Diagnosis Codes</h3></center>
+```{r hypoxemia_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+hypoxemia_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Hypoxemia")
+
+colnames(hypoxemia_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(hypoxemia_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Lower Respiratory Tract Infection (LRTI) {#lrti .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+LRTI diagnosis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>LRTI Diagnosis Codes</h3></center>
+```{r lrti_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+lrti_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "LRTI") 
+
+colnames(lrti_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(lrti_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Lung Cancer  {#lungcancer .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Lung cancer code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Lung Cancer Diagnosis Codes</h3></center>
+```{r lungcancer_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+lungcancer_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Lung cancer")
+
+colnames(lungcancer_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(lungcancer_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'), 
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## Metabolic Syndrome {#metasynd .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Metabolic Syndrome diagnosis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Metabolic Syndrome Diagnosis Codes</h3></center>
+```{r ms_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+ms_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Metabolic syndrome")
+
+
+colnames(ms_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(ms_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Nasal Polyps {#nasalpolyp .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Nasal Polyp code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Nasal Polyp Diagnosis Codes</h3></center>
+```{r np_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+np_codes <-  read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Nasal Polyp")
+
+colnames(np_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(np_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Obstructive Sleep Apnea (OSA) {#osa .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Obstructive Sleep Apnea code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>OSA Diagnosis Codes</h3></center>
+```{r osa_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+osa_codes <-  read_excel("code_lists/APEX_code_lists.xlsx", sheet = "osa")
+
+colnames(osa_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(osa_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Osteoarthritis {#osteoarth .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Osteoarthritis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Osteoarthritis Diagnosis Codes</h3></center>
+```{r osteoarth_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+osteoarth_codes <-  filter(repo, value_set_id == 605) %>%
+  select(c(code, code_system, description))
+
+colnames(osteoarth_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(osteoarth_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Osteoporosis {#osteopor .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Osteoporosis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Osteoporosis Diagnosis Codes</h3></center>
+```{r osteopor_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+osteopor_codes <-  read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Osteoporosis")
+
+colnames(osteopor_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(osteopor_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Pneumonia {#pneumonia .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Pneumonia code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Pneumonia Diagnosis Codes</h3></center>
+```{r pneumonia_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+pneumonia_codes <-  filter(repo, value_set_id == 1040) %>%
+  select(c(code, code_system, description))
+
+colnames(pneumonia_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(pneumonia_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Rhinitis {#rhinitis .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Rhinitis code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Rhinitis Diagnosis Codes</h3></center>
+```{r rhinitis_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+rhinitis_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Rhinits") 
+
+colnames(rhinitis_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(rhinitis_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## Weight loss {#weightloss .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+Weight loss code ever.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Weight loss Diagnosis Codes</h3></center>
+```{r weightloss_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+weightloss_codes <- read_excel("code_lists/APEX_code_lists.xlsx", sheet = "Weight loss")
+
+colnames(weightloss_codes) <- c('Code', 'Code System', 'Term')
+
+datatable(weightloss_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+# Pharmacotherapy
+
+## ICS {#ics .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for ICS.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>ICS medication Codes</h3></center>
+```{r ics_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+ics_codes <- filter(drug_cat, drug_type == "ics") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(ics_codes) <- c('Code', 'Term', 'Type')
+
+datatable(ics_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## ICS/LABA {#icslaba .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for ICS/LABA.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>ICS/LABA medication Codes</h3></center>
+```{r ics_laba_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+ics_laba_codes <- filter(drug_cat, drug_type == "ics_laba") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(ics_laba_codes) <- c('Code', 'Term', 'Type')
+
+datatable(ics_laba_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## ICS/LABA/LAMA {#icslabalama .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for ICS/LABA/LAMA.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>ICS/LABA/LAMA medication Codes</h3></center>
+```{r ics_laba_lama_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+ics_laba_lama_codes <- filter(drug_cat, drug_type == "ics_laba_lama") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(ics_laba_lama_codes) <- c('Code', 'Term', 'Type')
+
+datatable(ics_laba_lama_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## LABA {#laba .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for LABA.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>LABA medication Codes</h3></center>
+```{r laba_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+laba_codes <- filter(drug_cat, drug_type == "laba") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(laba_codes) <- c('Code', 'Term', 'Type')
+
+datatable(laba_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## LAMA {#lama .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for LAMA.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>LAMA medication Codes</h3></center>
+```{r lama_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+lama_codes <- filter(drug_cat, drug_type == "lama") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(lama_codes) <- c('Code', 'Term', 'Type')
+
+datatable(lama_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## LABA/LAMA {#labalama .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for LABA/LAMA.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>LABA/LAMA medication Codes</h3></center>
+```{r laba_lama_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+laba_lama_codes <- filter(drug_cat, drug_type == "laba_lama") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(laba_lama_codes) <- c('Code', 'Term', 'Type')
+
+datatable(laba_lama_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## SABA {#saba .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for SABA.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>SABA medication Codes</h3></center>
+```{r saba_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+saba_codes <- filter(drug_cat, drug_type == "saba") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(saba_codes) <- c('Code', 'Term', 'Type')
+
+datatable(saba_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## SAMA {#sama .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for SAMA.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>SAMA medication Codes</h3></center>
+```{r sama_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+sama_codes <- filter(drug_cat, drug_type == "sama") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(sama_codes) <- c('Code', 'Term', 'Type')
+
+datatable(sama_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+## SABA/SAMA {#sabasama .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for SABA/SAMA.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>SABA/SAMA medication Codes</h3></center>
+```{r saba_sama_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+saba_sama_codes <- filter(drug_cat, drug_type == "saba_sama") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(saba_sama_codes) <- c('Code', 'Term', 'Type')
+
+datatable(saba_sama_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## OCS {#ocs .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for OCS.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>OCS medication Codes</h3></center>
+```{r ocs_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+ocs_codes <- filter(drug_cat, drug_type == "ocs") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(ocs_codes) <- c('Code', 'Term', 'Type')
+
+datatable(ocs_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Macrolide {#macro .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for Macrolides.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Macrolide medication Codes</h3></center>
+```{r macro_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+macro_codes <- filter(drug_cat, drug_type == "macrolide") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(macro_codes) <- c('Code', 'Term', 'Type')
+
+datatable(macro_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+### Detials {-}
+
+Only long term courses of macrolides are being included. Long term term macrolide treatment is defined as the use of macrolides that have been administered orally at least one time a week for a period of at least 3 months as referred to in [this paper](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6254503/). Short term courses for macrolides are excluded.
+
+## PDE4 {#pde4 .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for PDE4.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>PDE4 medication Codes</h3></center>
+```{r pde4_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+pde4_codes <- filter(drug_cat, drug_type == "pde4") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(pde4_codes) <- c('Code', 'Term', 'Type')
+
+datatable(pde4_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Antibiotics {#antib .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for antibiotics.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Antibiotic medication Codes</h3></center>
+```{r antib_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+antib_codes <- filter(drug_cat, drug_type == "antibiotic") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(antib_codes) <- c('Code', 'Term', 'Type')
+
+datatable(antib_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+## Diuretics {#diuretics .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+RxNorm codes for diuretics.
+
+### Diagnosis Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Diuretic medication Codes</h3></center>
+```{r diur_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+diur_codes <- filter(drug_cat, drug_type == "diuretics") %>% 
+  select(c(rxnorm, Generic_Name, drug_type))
+
+colnames(diur_codes) <- c('Code', 'Term', 'Type')
+
+datatable(diur_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+# Risk Indicators
+
+## Exacerbations {#exacerbations .tabset .tabset-fade .tabset-pills}
+
+### Explanation {-}
+
+An exacerbation is defined as any of the folloing events: 
+
+* A code for an exacerbation found in the patient's EHR. 
+* Antibiotic prescribed with evidence of a lower respiratory consultation 
+* A course of oral corticosteroids with evidence of an acute respiratory infection 
+* An acute course of antibiotic and oral corticosteroid at the same time
+
+### Exacberation Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Exacerbaion Codes</h3></center>
+```{r exac_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+exac_codes <- read_excel("code_lists/exacerbation_algorithm_final.xlsx", sheet = "exacerbations_codes")
+
+colnames(exac_codes) <- c('Code', 'Term', 'Type')
+
+datatable(exac_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+### Antibiotic Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Exacerbaion Codes</h3></center>
+```{r anti_exac_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+antibiotic_codes <- read_excel("code_lists/exacerbation_algorithm_final.xlsx", sheet = "antibiotic")
+
+colnames(exac_codes) <- c('Code', 'Term', 'Type')
+
+datatable(exac_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+### Oral Corticosteroid Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Exacerbaion Codes</h3></center>
+```{r ocs_exac_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+exac_codes <- read_excel("code_lists/exacerbation_algorithm_final.xlsx", sheet = "ocs_codes")
+
+colnames(exac_codes) <- c('Code', 'Term', 'Type')
+
+datatable(exac_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+
+
+### LRTI Codes {-}
+
+<div class = "row">
+<div class = "rect", style="float:right; margin-left:5%; margin-right: 5%; width:90%;">
+<center><h3>Exacerbaion Codes</h3></center>
+```{r lrti_exac_codes, fig.height=4.5, dev.args = list(bg = 'transparent')}
+
+exac_codes <- read_excel("code_lists/exacerbation_algorithm_final.xlsx", sheet = "LRTI codes")
+
+colnames(exac_codes) <- c('Code', 'Term', 'Type')
+
+datatable(exac_codes, escape = F, filter = 'top', rownames = F, 
+          extensions = c('Buttons', 'FixedColumns'),
+          options = list(dom = 'lfrtBip', buttons = c('copy', 'csv','pdf', 'print'), 
+                         scrollX = T, fixedColumns = list(leftColumns = 1))) 
+
+```
+</div></div>
+# References
+
+Cui Y, Luo L, Li C, Chen P, Chen Y. Long-term macrolide treatment for the prevention of acute exacerbations in COPD: a systematic review and meta-analysis; 2018 Nov; 
+Available from: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6254503/
+
